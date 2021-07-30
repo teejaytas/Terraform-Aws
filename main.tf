@@ -49,7 +49,7 @@ resource "aws_route_table_association" "a" {
   subnet_id      = aws_subnet.subnet-one.id
   route_table_id = aws_route_table.p-route-table.id
 }
-#################################################
+
 # Security part
 resource "aws_security_group" "security_ec2" {
   name        = "security_ec2"
@@ -115,7 +115,7 @@ resource "aws_instance" "secondserver" {
       network_interface_id = aws_network_interface.web-N.id
  }
 
-##
+
   user_data = <<-EOF
                 #!/bin/bash
                 sudo apt update -y
@@ -125,7 +125,7 @@ resource "aws_instance" "secondserver" {
                 EOF
      
 }
-
+#Define Key-Pair
 resource "aws_key_pair" "keyfour" {
   key_name   = "keyfour"
   public_key = "${file("keyfour.pub")}"
