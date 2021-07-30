@@ -16,15 +16,26 @@ Go to Key_pair Enter the filename.pub or copy the filename.pub to project_dir
 Then Open Current Diirecty Terminal 
 
 Type: 
->Terraform Vaildate #check the Format is Correct
->Terraform Plan     #Create the Resource 
->Terraform Apply    #Check the security and Create the Resource
+
+>Terraform Vaildate      
+#check the Format is Correct
+
+
+>Terraform Plan     
+>#Create the Resource 
+
+
+>Terraform Apply    
+>#Check the security and Create the Resource
 >Type Yes
 
 To Acess Ec2 
 > ssh "filename.pem" username@public_Ipv4_Address
+
+
+
 To Check Nginx is install Correctly
-type IPV4 Public Address in The Browser
+>type IPV4 Public Address in The Browser
 
 
 
