@@ -1,6 +1,6 @@
 # Terraform-Aws
 
-How To Create Ec2 Instance using Terraform 
+How To Create Ec2 Instance using Terraform And Install Nginx
 First Go to Aws Account , then Security-Credential
 If needed Then Create user Then Take Access And Private Key
 
