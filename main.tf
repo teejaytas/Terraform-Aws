@@ -1,62 +1,133 @@
 provider "aws" {
   region = "ap-south-1"
 }
-# Adding the Security Group
+#create a vpc
+resource "aws_vpc" "my-vpc"{
+    cidr_block="10.0.0.0/16"
+    tags = {
+        Name = "production"
+    }
+}
+#create a gateway
+resource "aws_internet_gateway" "gw" {
+    vpc_id = aws_vpc.my-vpc.id
 
-resource "aws_security_group" "ec2-Security" {
-  name        = "ec2-security"
+}
+#Define route table
 
-  ingress {
-    from_port        = 8080
-    to_port          = 8080
-    protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
+resource "aws_route_table" "p-route-table" {
+  vpc_id = aws_vpc.my-vpc.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.gw.id
   }
 
-  ingress {
-    from_port        = 22
-    to_port          = 22
-    protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port        = 0
-    to_port          = 65535
-    protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
+  route {
+    ipv6_cidr_block        = "::/0"
+    gateway_id = aws_internet_gateway.gw.id
   }
 
   tags = {
-    Name = "ec2-security"
+    Name = "Prod"
   }
 }
 
+#Define subnet
+resource "aws_subnet" "subnet-one" {
+  vpc_id     = aws_vpc.my-vpc.id
+  cidr_block = "10.0.1.0/24"
+  availability_zone = "ap-south-1a"
+  tags = {
+      Name = "prod-subnet"
+  }
+}
 
-resource "aws_instance" "second-server" {
-  ami  = "ami-0c1a7f89451184c8b"
-  instance_type = "t2.micro"
-  key_name = "Pkey"
+#Combine subnet with route table
+
+resource "aws_route_table_association" "a" {
+  subnet_id      = aws_subnet.subnet-one.id
+  route_table_id = aws_route_table.p-route-table.id
+}
+#################################################
+# Security part
+resource "aws_security_group" "security_ec2" {
+  name        = "security_ec2"
+  description = "security group for ec2"
+  vpc_id = aws_vpc.my-vpc.id
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 
 
+ ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+ # outbound 
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "security_ec2"
+  }
+}
+
+#Define N-F
+
+resource "aws_network_interface" "web-N" {
+  subnet_id       = aws_subnet.subnet-one.id
+  private_ips     = ["10.0.1.50"]
+  security_groups = [aws_security_group.security_ec2.id]
+}
+
+#Assign EIP
+resource "aws_eip" "one" {
+  vpc                       = true
+  network_interface         = aws_network_interface.web-N.id
+  associate_with_private_ip = "10.0.1.50"
+  depends_on = [aws_internet_gateway.gw]
+}
+
+#
+resource "aws_instance" "secondserver" {
+  ami  = "${var.ami}"
+  instance_type = "${var.instance_type}"
+  key_name = "${aws_key_pair.keyfour.key_name}"
+  
+  tags = {
+    Name = "ubuntu"
+  }
+ 
+ network_interface {
+    device_index = 0
+      network_interface_id = aws_network_interface.web-N.id
+ }
+
+##
   user_data = <<-EOF
-              #!/bin/bash
-              sudo apt update -y
-              sudo apt install nginx
-              sudo service nginx start
-              EOF
-    
-    tags = {
-    Name = "instance_name"
-  }
+                #!/bin/bash
+                sudo apt update -y
+                sudo apt install nginx -y
+                sudo systemctl start nginx
+                sudo bash -c 'echo your first web server > /var/www/html/index.html'
+                EOF
+     
 }
 
-##
-
-resource "aws_key_pair" "key-pair" {
-  key_name   = "Pkey"
-  public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDK7ZjVr5fz6J1ioY/bh/4XHSP5vTxxI9pCFL28yOqT5fuxGtGh5tky+RhFF+u7iAoznNRost8ec8U6pvihU2n+Zsd45UcOF2V1UtZTvTFkXy0qBMgKBjE6WySoffSeH+PP4kHm2DdNL2bWAmifUe3Y3+M0seWMO+fidh5lVT20LIUvVopIXYiukxkGLDUl7qRfzZaMD/HIIIYeNKM0IlfAjor+x0Ll0oyGEhujNXkuF+KGUYvO81dzcQ3CsCQpZyg8J5s+FpjzHYKL6bIIytcIBAT/Yk01hhSJRXqZMN1UQsFafhGaO6lH4pImrAEv784aFv59u3FRaeZDalMML5KBSwE+uo/pJ/i3zdtjkp8hjIFXmQyEXAYWh0mFVM6qImafWDdxDUTcNhpQSFTERnXfbVf0FepwQOyXrx9FAS+AUnq/nnW6xaTlTLcMRTFxhOMBLP6zT6KcZAA87UwOhynfLYedlnQ31U4nK/yxBoIZ0ITWGA8RO9gq0aL6uYmFSuM= sigmoid@sv-lap-0090"
-
+resource "aws_key_pair" "keyfour" {
+  key_name   = "keyfour"
+  public_key = "${file("keyfour.pub")}"
 }
 
-##
